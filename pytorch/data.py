@@ -46,6 +46,21 @@ def load_data(partition):
     all_label = np.concatenate(all_label, axis=0)
     return all_data, all_label
 
+def load_shapenet_data(partition):
+    download()
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DATA_DIR = os.path.join(BASE_DIR, 'data')
+    all_data = None
+    all_label = None
+    
+    with h5py.File(os.path.join(DATA_DIR, 'shapenet_data_{}.hdf5'.format(partition))) as f:
+        data = f['data'][:].astype('float32')
+        label = f['label'][:].astype('int64')
+        all_data = data
+        all_label = label
+
+    return all_data, all_label
+
 
 def translate_pointcloud(pointcloud):
     xyz1 = np.random.uniform(low=2./3., high=3./2., size=[3])
@@ -79,9 +94,30 @@ class ModelNet40(Dataset):
         return self.data.shape[0]
 
 
+class ShapeNet13(Dataset):
+    def __init__(self, num_points, partition='train'):
+        self.data, self.label = load_shapenet_data(partition)
+        self.num_points = num_points
+        self.partition = partition        
+
+    def __getitem__(self, item):
+        pointcloud = self.data[item][:self.num_points]
+        label = self.label[item]
+        if self.partition == 'train':
+            pointcloud = translate_pointcloud(pointcloud)
+            np.random.shuffle(pointcloud)
+        return pointcloud, label
+
+    def __len__(self):
+        return self.data.shape[0]
+
+
 if __name__ == '__main__':
-    train = ModelNet40(1024)
-    test = ModelNet40(1024, 'test')
+    # train = ModelNet40(1024)
+    # test = ModelNet40(1024, 'test')
+
+    train = ShapeNet13(1024)
+    test = ShapeNet13(1024, 'test')
     for data, label in train:
         print(data.shape)
         print(label.shape)
